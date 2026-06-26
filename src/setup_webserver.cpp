@@ -69,7 +69,7 @@ String buildSettingsPage(bool apMode) {
     String html;
     html.reserve(2560);
     html += F(
-        "<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=viewport content='width=device-width,initial-scale=1'>"
         "<title>Kimai Dial Setup</title><style>"
         "body{font-family:sans-serif;max-width:480px;margin:24px auto;padding:0 16px;background:#1a1a1a;color:#eee}"
         "h1{font-size:20px}h2{font-size:16px;margin-top:32px;border-top:1px solid #333;padding-top:16px}"
@@ -150,7 +150,7 @@ String buildSettingsPage(bool apMode) {
 
 String buildResetPage() {
     String html;
-    html += F("<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+    html += F("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=viewport content='width=device-width,initial-scale=1'>"
                "<title>Reset</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
                "background:#1a1a1a;color:#eee}</style></head><body>");
     html += "<h1>" + String(label("Zurückgesetzt", "Reset complete")) + "</h1><p>" +
@@ -161,7 +161,7 @@ String buildResetPage() {
 
 String buildSavedPage() {
     String html;
-    html += F("<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+    html += F("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=viewport content='width=device-width,initial-scale=1'>"
                "<title>Gespeichert</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
                "background:#1a1a1a;color:#eee}</style></head><body>");
     html += "<h1>" + String(label("Gespeichert", "Saved")) + "</h1><p>" +
@@ -170,7 +170,7 @@ String buildSavedPage() {
 }
 
 void handleRoot() {
-    server.send(200, "text/html", buildSettingsPage(apActive));
+    server.send(200, "text/html; charset=utf-8", buildSettingsPage(apActive));
 }
 
 void handleSaveWifi() {
@@ -186,7 +186,7 @@ void handleSaveWifi() {
         SettingsStore::saveWifi(SettingsStore::getWifiSsid(), wifiPass);
     }
 
-    server.send(200, "text/html", buildSavedPage());
+    server.send(200, "text/html; charset=utf-8", buildSavedPage());
     // Pragmatic: a blocking delay() right in the request handler, since
     // this is a one-off operation (per the architecture spec) - the
     // confirmation page has already gone out via server.send() at this point.
@@ -214,7 +214,7 @@ void handleSaveKimai() {
         SettingsStore::saveUser(userToSave, tokenToSave);
     }
 
-    server.send(200, "text/html", buildSavedPage());
+    server.send(200, "text/html; charset=utf-8", buildSavedPage());
     delay(1500);
     ESP.restart();
 }
@@ -235,7 +235,7 @@ void handleSaveTimezone() {
 
 void handleReset() {
     SettingsStore::factoryReset();
-    server.send(200, "text/html", buildResetPage());
+    server.send(200, "text/html; charset=utf-8", buildResetPage());
     delay(1500);
     ESP.restart();
 }
