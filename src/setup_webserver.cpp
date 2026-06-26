@@ -1,0 +1,250 @@
+#include "setup_webserver.h"
+#include <WebServer.h>
+#include <WiFi.h>
+#include <DNSServer.h>
+#include "settings_store.h"
+#include "i18n.h"
+
+namespace {
+
+WebServer server(80);
+DNSServer dnsServer;
+bool running = false;
+
+// Small local helper instead of a full second i18n table for HTML: picks
+// the DE/EN label based on the SAME language setting as the device display
+// (SettingsStore::getLanguage()) - one shared setting, no separate language
+// switch in the browser.
+const char *label(const char *de, const char *en) {
+    return (SettingsStore::getLanguage() == Language::DE) ? de : en;
+}
+// Separate flag instead of coupling to "running": the DNS server (captive
+// portal redirect, see startAccessPoint()) must run ONLY while the AP is
+// active - in pure STA web server mode (startInStationMode()) there is no
+// AP and therefore no captive portal requests to redirect.
+bool apActive = false;
+
+// Minimal inline HTML, no framework - readable on a phone screen.
+// Password/token fields are NEVER pre-filled with the current value
+// (security reason); only SSID/user are pre-filled.
+//
+// WiFi and Kimai credentials are deliberately TWO separate <form>s with
+// their own endpoints (/save-wifi, /save-kimai) instead of one combined
+// submit: this way you can, e.g., renew only the API token without
+// accidentally also submitting an empty WiFi password field (which would
+// otherwise be interpreted as "unchanged", but with separate forms isn't
+// even part of the Kimai submit to begin with). Reset is a clearly
+// separated third section.
+//
+// In AP mode (device not yet on the LAN), the page shows ONLY the WiFi
+// form: the AP is isolated, with no route to the actual Kimai server - the
+// Kimai form only appears once the page is accessed on the LAN
+// (startInStationMode(), after a successful WiFi connect).
+String buildSettingsPage(bool apMode) {
+    String html;
+    html.reserve(2560);
+    html += F(
+        "<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>Kimai Dial Setup</title><style>"
+        "body{font-family:sans-serif;max-width:480px;margin:24px auto;padding:0 16px;background:#1a1a1a;color:#eee}"
+        "h1{font-size:20px}h2{font-size:16px;margin-top:32px;border-top:1px solid #333;padding-top:16px}"
+        "label{display:block;margin-top:16px;font-size:14px;color:#aaa}"
+        "input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:4px;"
+        "border:1px solid #444;border-radius:6px;background:#2a2a2a;color:#fff}"
+        "small{color:#888}"
+        "button{margin-top:16px;width:100%;padding:12px;font-size:16px;background:#2E86DE;color:#fff;"
+        "border:none;border-radius:6px}"
+        "</style></head><body><h1>Kimai Dial Setup</h1>");
+
+    html += "<h2>" + String(label("WLAN", "WiFi")) + "</h2><form method='POST' action='/save-wifi'>";
+    html += "<label>" + String(label("WLAN-SSID", "WiFi SSID")) + "</label><input name='ssid' value='";
+    html += SettingsStore::getWifiSsid();
+    html += F("'>");
+    html += "<label>" + String(label("WLAN-Passwort", "WiFi password")) + " <small>(" +
+            String(label("leer lassen = unveraendert", "leave blank = unchanged")) +
+            ")</small></label>"
+            "<input type='password' name='wifi_pass' placeholder='" +
+            String(label("unveraendert", "unchanged")) + "'>";
+    html += "<button type='submit'>" + String(label("WLAN speichern &amp; Neustart", "Save WiFi &amp; restart")) +
+            "</button></form>";
+
+    if (apMode) {
+        html += "<p style='color:#aaa'>" +
+                String(label("Kimai-Server-URL/User/Token gibt es auf der "
+                              "Settings-Seite im LAN, sobald das Geraet verbunden ist (siehe Display).",
+                              "The Kimai server URL/user/token are available on the settings page on "
+                              "the LAN once the device is connected (see display).")) +
+                "</p>";
+    } else {
+        html += "<h2>Kimai</h2><form method='POST' action='/save-kimai'>";
+        html += "<label>" + String(label("Kimai-Server-URL", "Kimai server URL")) +
+                " <small>z.B. http://192.168.0.143:8001</small></label>"
+                "<input name='base_url' value='";
+        html += SettingsStore::getKimaiBaseUrl();
+        html += F("'>");
+        html += "<label>" + String(label("Kimai-Username", "Kimai username")) + "</label><input name='user' value='";
+        html += SettingsStore::getKimaiUser();
+        html += F("'>");
+        html += "<label>" + String(label("Kimai-API-Token", "Kimai API token")) + " <small>(" +
+                String(label("leer lassen = unveraendert", "leave blank = unchanged")) +
+                ")</small></label>"
+                "<input type='password' name='token' placeholder='" +
+                String(label("unveraendert", "unchanged")) + "'>";
+        html += "<button type='submit'>" + String(label("Kimai speichern &amp; Neustart", "Save Kimai &amp; restart")) +
+                "</button></form>";
+    }
+
+    html += "<h2>" + String(label("Zuruecksetzen", "Reset")) +
+            "</h2>"
+            "<form method='POST' action='/reset' onsubmit=\"return confirm('" +
+            String(label("Wirklich ALLES zuruecksetzen (WLAN + Kimai-Zugangsdaten)?",
+                          "Really reset EVERYTHING (WiFi + Kimai credentials)?")) +
+            "');\">"
+            "<button type='submit' style='background:#c0392b'>" +
+            String(label("Factory Reset (alles vergessen)", "Factory reset (forget everything)")) +
+            "</button></form>"
+            "</body></html>";
+    return html;
+}
+
+String buildResetPage() {
+    String html;
+    html += F("<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+               "<title>Reset</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
+               "background:#1a1a1a;color:#eee}</style></head><body>");
+    html += "<h1>" + String(label("Zurueckgesetzt", "Reset complete")) + "</h1><p>" +
+            String(label("Geraet startet neu in den Setup-Modus...", "Device is restarting into setup mode...")) +
+            "</p></body></html>";
+    return html;
+}
+
+String buildSavedPage() {
+    String html;
+    html += F("<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+               "<title>Gespeichert</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
+               "background:#1a1a1a;color:#eee}</style></head><body>");
+    html += "<h1>" + String(label("Gespeichert", "Saved")) + "</h1><p>" +
+            String(label("Geraet startet neu...", "Device is restarting...")) + "</p></body></html>";
+    return html;
+}
+
+void handleRoot() {
+    server.send(200, "text/html", buildSettingsPage(apActive));
+}
+
+void handleSaveWifi() {
+    // Only take over non-empty fields, otherwise leaving the password
+    // field blank would accidentally delete the stored value.
+    String ssid = server.hasArg("ssid") ? server.arg("ssid") : "";
+    String wifiPass = server.hasArg("wifi_pass") ? server.arg("wifi_pass") : "";
+
+    if (!ssid.isEmpty()) {
+        String passToSave = wifiPass.isEmpty() ? SettingsStore::getWifiPassword() : wifiPass;
+        SettingsStore::saveWifi(ssid, passToSave);
+    } else if (!wifiPass.isEmpty()) {
+        SettingsStore::saveWifi(SettingsStore::getWifiSsid(), wifiPass);
+    }
+
+    server.send(200, "text/html", buildSavedPage());
+    // Pragmatic: a blocking delay() right in the request handler, since
+    // this is a one-off operation (per the architecture spec) - the
+    // confirmation page has already gone out via server.send() at this point.
+    delay(1500);
+    ESP.restart();
+}
+
+void handleSaveKimai() {
+    String baseUrl = server.hasArg("base_url") ? server.arg("base_url") : "";
+    String user = server.hasArg("user") ? server.arg("user") : "";
+    String token = server.hasArg("token") ? server.arg("token") : "";
+
+    if (!baseUrl.isEmpty()) {
+        // Strip a trailing slash, since kimai_client.cpp appends the path
+        // ("/api/...") directly - otherwise the URL would end up with a double slash.
+        if (baseUrl.endsWith("/")) {
+            baseUrl.remove(baseUrl.length() - 1);
+        }
+        SettingsStore::saveBaseUrl(baseUrl);
+    }
+
+    if (!user.isEmpty() || !token.isEmpty()) {
+        String userToSave = user.isEmpty() ? SettingsStore::getKimaiUser() : user;
+        String tokenToSave = token.isEmpty() ? SettingsStore::getKimaiToken() : token;
+        SettingsStore::saveUser(userToSave, tokenToSave);
+    }
+
+    server.send(200, "text/html", buildSavedPage());
+    delay(1500);
+    ESP.restart();
+}
+
+void handleReset() {
+    SettingsStore::factoryReset();
+    server.send(200, "text/html", buildResetPage());
+    delay(1500);
+    ESP.restart();
+}
+
+void registerRoutes() {
+    server.on("/", HTTP_GET, handleRoot);
+    server.on("/save-wifi", HTTP_POST, handleSaveWifi);
+    server.on("/save-kimai", HTTP_POST, handleSaveKimai);
+    server.on("/reset", HTTP_POST, handleReset);
+    server.onNotFound([]() {
+        server.sendHeader("Location", "/");
+        server.send(302, "text/plain", "");
+    });
+}
+
+} // namespace
+
+namespace SetupWebServer {
+
+void startAccessPoint() {
+    WiFi.mode(WIFI_AP_STA); // AP + still allows STA connection attempts in the background
+    WiFi.softAP(AP_SSID, AP_PASSWORD);
+    if (!running) {
+        registerRoutes();
+        server.begin();
+        running = true;
+    }
+    // DNS catch-all (every request -> AP IP): this is the actual captive
+    // portal trick. After connecting to WiFi, smartphones automatically
+    // check a known test address (e.g. connectivitycheck.android.com);
+    // since the DNS answer here ALWAYS points to the AP IP, they get the
+    // settings page instead of the expected response and show their own
+    // "sign in to network" prompt that leads directly to the settings page
+    // - the user no longer has to type in the IP/URL themselves.
+    dnsServer.start(53, "*", WiFi.softAPIP());
+    apActive = true;
+}
+
+void startInStationMode() {
+    if (!running) {
+        registerRoutes();
+        server.begin();
+        running = true;
+    }
+}
+
+void stopAccessPoint() {
+    dnsServer.stop();
+    apActive = false;
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+}
+
+void handleClient() {
+    if (apActive) {
+        dnsServer.processNextRequest();
+    }
+    if (running) {
+        server.handleClient();
+    }
+}
+
+bool isRunning() {
+    return running;
+}
+
+} // namespace SetupWebServer
