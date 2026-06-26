@@ -10,6 +10,7 @@ Firmware for an [M5Stack M5Dial](https://docs.m5stack.com/en/core/M5Dial) that a
 - Zero-config secrets in the source code: WiFi, Kimai server URL, username and API token are all set up **on the device itself**, via a built-in WiFi access point + captive-portal web page (no `config.h`, no recompiling to change credentials)
 - "Forget WiFi" / full factory reset from the web settings page
 - German/English UI (device display and web settings page), switchable from the Settings menu
+- Timezone (with correct DST rule) selectable from the web settings page - no recompiling needed
 
 ## Hardware
 
@@ -51,10 +52,6 @@ The code is organized into three pragmatic layers (see comments in the source fo
 - **Infrastructure** (`kimai_client`, `settings_store`, `wifi_manager`, `setup_webserver`, `carousel`, `ui_screens`, `i18n`): HTTP, NVS persistence, WiFi, the setup web server, and rendering
 
 `KimaiClient` depends on an `ICredentialsProvider` interface (implemented by `SettingsStore`) rather than reaching into settings storage directly - the one place in the project where an interface is introduced on purpose. Elsewhere, the code intentionally avoids virtual dispatch, `std::function`, and heap allocation in hot paths (the encoder/render loop runs every ~20ms on a chip with no PSRAM).
-
-## Known limitations
-
-- Timezone is hardcoded to Europe/Berlin (`CET-1CEST,M3.5.0,M10.5.0/3`), with automatic DST switching handled by the C library - change the TZ string in `wifi_manager.cpp` if you're in a different timezone.
 
 ## License
 

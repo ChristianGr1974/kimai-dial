@@ -31,6 +31,14 @@ void saveBaseUrl(const String &baseUrl);
 Language getLanguage();
 void saveLanguage(Language lang);
 
+// POSIX TZ string (e.g. "CET-1CEST,M3.5.0,M10.5.0/3") passed to
+// configTzTime() in WifiManager::startNtpSync() - this is what makes both
+// the UTC offset AND the DST rule configurable from the web setup page
+// instead of being hardcoded for Europe/Berlin. Defaults to Europe/Berlin
+// when not yet stored.
+String getTimezone();
+void saveTimezone(const String &posixTz);
+
 // Clears ALL stored values (WiFi + Kimai server URL/user/token).
 // Deliberately a single "reset" instead of a separate "forget WiFi": a
 // half-reset device (e.g. new WiFi but still an old, possibly no longer

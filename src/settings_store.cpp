@@ -57,6 +57,14 @@ void saveLanguage(Language lang) {
     prefs.putUChar("language", static_cast<uint8_t>(lang));
 }
 
+String getTimezone() {
+    return prefs.getString("timezone", "CET-1CEST,M3.5.0,M10.5.0/3");
+}
+
+void saveTimezone(const String &posixTz) {
+    prefs.putString("timezone", posixTz);
+}
+
 void factoryReset() {
     prefs.remove("wifi_ssid");
     prefs.remove("wifi_pass");

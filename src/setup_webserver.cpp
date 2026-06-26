@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include "settings_store.h"
+#include "wifi_manager.h"
 #include "i18n.h"
 #include "version.h"
 
@@ -19,6 +20,29 @@ bool running = false;
 const char *label(const char *de, const char *en) {
     return (SettingsStore::getLanguage() == Language::DE) ? de : en;
 }
+// A curated list of POSIX TZ strings instead of a free-text field - covers
+// the common cases (including correct DST rules per region) without
+// needing the full IANA timezone database on the device. Add more entries
+// here if needed; the value itself is passed straight to configTzTime().
+struct TimezoneOption {
+    const char *posixTz;
+    const char *label;
+};
+constexpr TimezoneOption TIMEZONE_OPTIONS[] = {
+    {"CET-1CEST,M3.5.0,M10.5.0/3", "Europe/Berlin (CET/CEST)"},
+    {"GMT0BST,M3.5.0/1,M10.5.0", "Europe/London (GMT/BST)"},
+    {"EET-2EEST,M3.5.0/3,M10.5.0/4", "Europe/Helsinki (EET/EEST)"},
+    {"MSK-3", "Europe/Moscow (MSK)"},
+    {"UTC0", "UTC"},
+    {"EST5EDT,M3.2.0,M11.1.0", "US Eastern (EST/EDT)"},
+    {"CST6CDT,M3.2.0,M11.1.0", "US Central (CST/CDT)"},
+    {"MST7MDT,M3.2.0,M11.1.0", "US Mountain (MST/MDT)"},
+    {"PST8PDT,M3.2.0,M11.1.0", "US Pacific (PST/PDT)"},
+    {"JST-9", "Asia/Tokyo (JST)"},
+    {"AEST-10AEDT,M10.1.0,M4.1.0/3", "Australia/Sydney (AEST/AEDT)"},
+};
+constexpr size_t TIMEZONE_OPTIONS_COUNT = sizeof(TIMEZONE_OPTIONS) / sizeof(TIMEZONE_OPTIONS[0]);
+
 // Separate flag instead of coupling to "running": the DNS server (captive
 // portal redirect, see startAccessPoint()) must run ONLY while the AP is
 // active - in pure STA web server mode (startInStationMode()) there is no
@@ -50,7 +74,7 @@ String buildSettingsPage(bool apMode) {
         "body{font-family:sans-serif;max-width:480px;margin:24px auto;padding:0 16px;background:#1a1a1a;color:#eee}"
         "h1{font-size:20px}h2{font-size:16px;margin-top:32px;border-top:1px solid #333;padding-top:16px}"
         "label{display:block;margin-top:16px;font-size:14px;color:#aaa}"
-        "input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:4px;"
+        "input,select{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:4px;"
         "border:1px solid #444;border-radius:6px;background:#2a2a2a;color:#fff}"
         "small{color:#888}"
         "button{margin-top:16px;width:100%;padding:12px;font-size:16px;background:#2E86DE;color:#fff;"
@@ -94,6 +118,20 @@ String buildSettingsPage(bool apMode) {
         html += "<button type='submit'>" + String(label("Kimai speichern &amp; Neustart", "Save Kimai &amp; restart")) +
                 "</button></form>";
     }
+
+    html += "<h2>" + String(label("Zeitzone", "Timezone")) + "</h2><form method='POST' action='/save-timezone'>";
+    html += "<label>" + String(label("Zeitzone", "Timezone")) + "</label><select name='timezone'>";
+    String currentTz = SettingsStore::getTimezone();
+    for (size_t i = 0; i < TIMEZONE_OPTIONS_COUNT; i++) {
+        html += "<option value='" + String(TIMEZONE_OPTIONS[i].posixTz) + "'";
+        if (currentTz == TIMEZONE_OPTIONS[i].posixTz) {
+            html += " selected";
+        }
+        html += ">" + String(TIMEZONE_OPTIONS[i].label) + "</option>";
+    }
+    html += "</select>";
+    html += "<button type='submit'>" + String(label("Zeitzone speichern", "Save timezone")) +
+            "</button></form>";
 
     html += "<h2>" + String(label("Zurücksetzen", "Reset")) +
             "</h2>"
@@ -181,6 +219,20 @@ void handleSaveKimai() {
     ESP.restart();
 }
 
+void handleSaveTimezone() {
+    String tz = server.hasArg("timezone") ? server.arg("timezone") : "";
+    if (!tz.isEmpty()) {
+        SettingsStore::saveTimezone(tz);
+        // No reboot needed here (unlike WiFi/Kimai saves): just re-apply
+        // the new TZ to the already-running NTP sync if we're connected.
+        if (WiFi.status() == WL_CONNECTED) {
+            WifiManager::startNtpSync(tz);
+        }
+    }
+    server.sendHeader("Location", "/");
+    server.send(302, "text/plain", "");
+}
+
 void handleReset() {
     SettingsStore::factoryReset();
     server.send(200, "text/html", buildResetPage());
@@ -192,6 +244,7 @@ void registerRoutes() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/save-wifi", HTTP_POST, handleSaveWifi);
     server.on("/save-kimai", HTTP_POST, handleSaveKimai);
+    server.on("/save-timezone", HTTP_POST, handleSaveTimezone);
     server.on("/reset", HTTP_POST, handleReset);
     server.onNotFound([]() {
         server.sendHeader("Location", "/");

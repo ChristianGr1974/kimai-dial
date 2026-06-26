@@ -23,9 +23,11 @@ bool isConnected();
 // Blocks until connected or the timeout (ms) is reached. Returns true on success.
 bool waitForConnection(unsigned long timeoutMs);
 
-// Starts NTP sync (configTime). Should be called after a successful WiFi
-// connection, BEFORE the first timesheet is started.
-void startNtpSync();
+// Starts NTP sync (configTzTime) using the given POSIX TZ string (e.g.
+// "CET-1CEST,M3.5.0,M10.5.0/3" for Europe/Berlin - see SettingsStore::
+// getTimezone()). Should be called after a successful WiFi connection,
+// BEFORE the first timesheet is started.
+void startNtpSync(const String &posixTz);
 
 // Checks whether the system time has been set plausibly (i.e. NTP synced).
 bool isTimeSynced();

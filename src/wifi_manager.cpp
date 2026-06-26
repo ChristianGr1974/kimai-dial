@@ -34,13 +34,12 @@ bool waitForConnection(unsigned long timeoutMs) {
     return isConnected();
 }
 
-void startNtpSync() {
-    // POSIX TZ string for Europe/Berlin: "CET-1CEST,M3.5.0,M10.5.0/3" tells
-    // the C library both the standard offset (CET, UTC+1) and the DST rule
-    // (CEST, UTC+2, switching on the last Sunday of March/October) - the
+void startNtpSync(const String &posixTz) {
+    // posixTz tells the C library both the standard UTC offset and the DST
+    // rule (e.g. "CET-1CEST,M3.5.0,M10.5.0/3" for Europe/Berlin) - the
     // library computes the correct offset for "now" itself, so DST is
     // handled automatically instead of needing a manual seasonal flag.
-    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "pool.ntp.org", "time.nist.gov");
+    configTzTime(posixTz.c_str(), "pool.ntp.org", "time.nist.gov");
 }
 
 bool isTimeSynced() {

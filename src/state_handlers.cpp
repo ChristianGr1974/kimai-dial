@@ -682,7 +682,7 @@ void handleWifiConnecting() {
 
     if (WifiManager::isConnected()) {
         ctx.wifiConnected = true;
-        WifiManager::startNtpSync();
+        WifiManager::startNtpSync(SettingsStore::getTimezone());
         // Brief wait for NTP, so the first timesheet start has a plausible
         // time. We block briefly here (max 5s) instead of introducing
         // another state - keeps the state machine simple.
