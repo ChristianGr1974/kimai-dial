@@ -146,8 +146,8 @@ bool Carousel::update() {
     if (!isAnimating()) {
         return false;
     }
-    // A bit snappier than 0.10 (that was nice/smooth, just a bit slow).
-    animOffset_ += (animTarget_ - animOffset_) * 0.16f;
+    // 0.16 * 1.5 = 0.24 - 1.5x snappier per user feedback.
+    animOffset_ += (animTarget_ - animOffset_) * 0.24f;
     if (fabsf(animTarget_ - animOffset_) < 0.01f) {
         animOffset_ = animTarget_;
     }
