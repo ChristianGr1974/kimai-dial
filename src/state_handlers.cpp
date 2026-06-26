@@ -12,6 +12,7 @@
 #include "setup_webserver.h"
 #include "state_handlers.h"
 #include "i18n.h"
+#include <time.h>
 
 namespace {
 
@@ -119,6 +120,20 @@ void resolveActiveNamesFromProjects(int projectId, int activityId) {
     // We don't necessarily know the activity name without loading the
     // activity list; for the resume case the ID is a sufficient fallback.
     ctx.tracking.activeActivityName = String(I18n::t(I18n::Key::ACTIVITY_TITLE)) + " #" + String(activityId);
+}
+
+// Parses a Kimai "begin" timestamp ("YYYY-MM-DDTHH:MM:SS", no timezone
+// suffix - Kimai stores/returns it as local time, same convention used when
+// sending it in startTimesheet()) into epoch seconds, so a resumed timesheet
+// (after a device reboot) can show the true elapsed duration instead of
+// restarting the stopwatch at zero. Returns -1 if the string can't be parsed.
+long parseLocalTimestampToEpoch(const String &timestamp) {
+    struct tm tmStruct = {};
+    if (strptime(timestamp.c_str(), "%Y-%m-%dT%H:%M:%S", &tmStruct) == nullptr) {
+        return -1;
+    }
+    tmStruct.tm_isdst = -1; // let mktime() decide DST based on the date itself
+    return (long)mktime(&tmStruct);
 }
 
 uint16_t parseColorOrDefault(const String &hex, uint16_t fallback) {
@@ -277,11 +292,24 @@ void loadProjectsAndCheckActive() {
         if (activeId != -1) {
             ctx.tracking.activeTimesheetId = activeId;
             resolveActiveNamesFromProjects(activeProjectId, activeActivityId);
-            // We don't know the exact start in ESP millis(), so we start the
-            // local stopwatch at 0 from now on - this is a known MVP
-            // limitation: after a reboot during TRACKING_ACTIVE, the clock
-            // doesn't show the true total duration, only time since resume.
-            ctx.tracking.trackingStartMillis = millis();
+            // Reconstruct the true elapsed duration from Kimai's "begin"
+            // timestamp instead of restarting the stopwatch at zero: the
+            // ESP32 has no persistent monotonic clock across reboots, but
+            // with NTP synced we DO have the correct wall-clock time, so we
+            // can compute how long the timesheet has actually been running
+            // and back-date trackingStartMillis accordingly.
+            long beginEpoch = parseLocalTimestampToEpoch(activeBegin);
+            if (beginEpoch > 0 && WifiManager::isTimeSynced()) {
+                long elapsedSeconds = (long)time(nullptr) - beginEpoch;
+                if (elapsedSeconds < 0) {
+                    elapsedSeconds = 0; // clock skew/parse edge case - don't show a negative duration
+                }
+                ctx.tracking.trackingStartMillis = millis() - (unsigned long)elapsedSeconds * 1000UL;
+            } else {
+                // Fallback if the timestamp can't be parsed or NTP hasn't
+                // synced yet: start the stopwatch at zero (previous behavior).
+                ctx.tracking.trackingStartMillis = millis();
+            }
             setState(AppState::TRACKING_ACTIVE);
             return;
         }

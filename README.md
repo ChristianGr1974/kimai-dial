@@ -54,8 +54,7 @@ The code is organized into three pragmatic layers (see comments in the source fo
 
 ## Known limitations
 
-- Timezone is hardcoded to local time with no DST auto-switching when starting a timesheet.
-- If tracking is resumed after a device reboot, the displayed elapsed time restarts from zero (the true start time isn't re-fetched from millis()).
+- Timezone is hardcoded to Europe/Berlin (`CET-1CEST,M3.5.0,M10.5.0/3`), with automatic DST switching handled by the C library - change the TZ string in `wifi_manager.cpp` if you're in a different timezone.
 
 ## License
 

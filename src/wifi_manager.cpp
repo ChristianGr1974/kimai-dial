@@ -35,15 +35,12 @@ bool waitForConnection(unsigned long timeoutMs) {
 }
 
 void startNtpSync() {
-    // Europe/Berlin: the MVP uses fixed offsets instead of a full TZ
-    // database string. Daylight saving time (DST) is NOT detected
-    // automatically - deliberately kept simple for the MVP. Anyone running
-    // this in winter (CET, UTC+1) needs to set daylightOffset_sec to 0.
-    // Currently pre-configured for daylight saving time (CEST, UTC+2):
-    // gmtOffset 1h + daylight 1h = UTC+2.
-    const long gmtOffset_sec = 3600;       // UTC+1 base (CET)
-    const int daylightOffset_sec = 3600;   // +1h for daylight saving (CEST) - adjust manually in winter
-    configTime(gmtOffset_sec, daylightOffset_sec, "pool.ntp.org", "time.nist.gov");
+    // POSIX TZ string for Europe/Berlin: "CET-1CEST,M3.5.0,M10.5.0/3" tells
+    // the C library both the standard offset (CET, UTC+1) and the DST rule
+    // (CEST, UTC+2, switching on the last Sunday of March/October) - the
+    // library computes the correct offset for "now" itself, so DST is
+    // handled automatically instead of needing a manual seasonal flag.
+    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "pool.ntp.org", "time.nist.gov");
 }
 
 bool isTimeSynced() {
