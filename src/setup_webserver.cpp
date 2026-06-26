@@ -4,6 +4,7 @@
 #include <DNSServer.h>
 #include "settings_store.h"
 #include "i18n.h"
+#include "version.h"
 
 namespace {
 
@@ -103,6 +104,8 @@ String buildSettingsPage(bool apMode) {
             "<button type='submit' style='background:#c0392b'>" +
             String(label("Factory Reset (alles vergessen)", "Factory reset (forget everything)")) +
             "</button></form>"
+            "<p style='color:#555;font-size:12px;text-align:center;margin-top:32px'>Kimai Dial v" +
+            String(FIRMWARE_VERSION) + "</p>"
             "</body></html>";
     return html;
 }

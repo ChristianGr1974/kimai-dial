@@ -7,6 +7,7 @@
 #include <M5Dial.h>
 #include <qrcode.h>
 #include "i18n.h"
+#include "version.h"
 
 namespace {
 
@@ -179,6 +180,7 @@ void renderBoot() {
     clearScreen();
     drawCenteredUi(I18n::t(I18n::Key::BOOT_TITLE), CENTER_Y - 10);
     drawCentered(I18n::t(I18n::Key::BOOT_STARTING), CENTER_Y + 30, 1);
+    drawCentered(String("v") + FIRMWARE_VERSION, 205, 1, TFT_DARKGREY);
 }
 
 void renderWifiConnecting() {
