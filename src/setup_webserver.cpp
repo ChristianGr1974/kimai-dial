@@ -62,47 +62,47 @@ String buildSettingsPage(bool apMode) {
     html += SettingsStore::getWifiSsid();
     html += F("'>");
     html += "<label>" + String(label("WLAN-Passwort", "WiFi password")) + " <small>(" +
-            String(label("leer lassen = unveraendert", "leave blank = unchanged")) +
+            String(label("leer lassen = unverändert", "leave blank = unchanged")) +
             ")</small></label>"
             "<input type='password' name='wifi_pass' placeholder='" +
-            String(label("unveraendert", "unchanged")) + "'>";
+            String(label("unverändert", "unchanged")) + "'>";
     html += "<button type='submit'>" + String(label("WLAN speichern &amp; Neustart", "Save WiFi &amp; restart")) +
             "</button></form>";
 
     if (apMode) {
         html += "<p style='color:#aaa'>" +
-                String(label("Kimai-Server-URL/User/Token gibt es auf der "
-                              "Settings-Seite im LAN, sobald das Geraet verbunden ist (siehe Display).",
+                String(label("Kimai-Server-Adresse/Benutzer/Token gibt es auf der "
+                              "Einstellungsseite im Netzwerk, sobald das Gerät verbunden ist (siehe Display).",
                               "The Kimai server URL/user/token are available on the settings page on "
                               "the LAN once the device is connected (see display).")) +
                 "</p>";
     } else {
         html += "<h2>Kimai</h2><form method='POST' action='/save-kimai'>";
-        html += "<label>" + String(label("Kimai-Server-URL", "Kimai server URL")) +
+        html += "<label>" + String(label("Kimai-Server-Adresse", "Kimai server URL")) +
                 " <small>z.B. http://192.168.0.143:8001</small></label>"
                 "<input name='base_url' value='";
         html += SettingsStore::getKimaiBaseUrl();
         html += F("'>");
-        html += "<label>" + String(label("Kimai-Username", "Kimai username")) + "</label><input name='user' value='";
+        html += "<label>" + String(label("Kimai-Benutzername", "Kimai username")) + "</label><input name='user' value='";
         html += SettingsStore::getKimaiUser();
         html += F("'>");
         html += "<label>" + String(label("Kimai-API-Token", "Kimai API token")) + " <small>(" +
-                String(label("leer lassen = unveraendert", "leave blank = unchanged")) +
+                String(label("leer lassen = unverändert", "leave blank = unchanged")) +
                 ")</small></label>"
                 "<input type='password' name='token' placeholder='" +
-                String(label("unveraendert", "unchanged")) + "'>";
+                String(label("unverändert", "unchanged")) + "'>";
         html += "<button type='submit'>" + String(label("Kimai speichern &amp; Neustart", "Save Kimai &amp; restart")) +
                 "</button></form>";
     }
 
-    html += "<h2>" + String(label("Zuruecksetzen", "Reset")) +
+    html += "<h2>" + String(label("Zurücksetzen", "Reset")) +
             "</h2>"
             "<form method='POST' action='/reset' onsubmit=\"return confirm('" +
-            String(label("Wirklich ALLES zuruecksetzen (WLAN + Kimai-Zugangsdaten)?",
+            String(label("Wirklich ALLES zurücksetzen (WLAN + Kimai-Zugangsdaten)?",
                           "Really reset EVERYTHING (WiFi + Kimai credentials)?")) +
             "');\">"
             "<button type='submit' style='background:#c0392b'>" +
-            String(label("Factory Reset (alles vergessen)", "Factory reset (forget everything)")) +
+            String(label("Werksreset (alles vergessen)", "Factory reset (forget everything)")) +
             "</button></form>"
             "<p style='color:#555;font-size:12px;text-align:center;margin-top:32px'>Kimai Dial v" +
             String(FIRMWARE_VERSION) + "</p>"
@@ -115,8 +115,8 @@ String buildResetPage() {
     html += F("<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
                "<title>Reset</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
                "background:#1a1a1a;color:#eee}</style></head><body>");
-    html += "<h1>" + String(label("Zurueckgesetzt", "Reset complete")) + "</h1><p>" +
-            String(label("Geraet startet neu in den Setup-Modus...", "Device is restarting into setup mode...")) +
+    html += "<h1>" + String(label("Zurückgesetzt", "Reset complete")) + "</h1><p>" +
+            String(label("Gerät startet neu in den Einrichtungsmodus...", "Device is restarting into setup mode...")) +
             "</p></body></html>";
     return html;
 }
@@ -127,7 +127,7 @@ String buildSavedPage() {
                "<title>Gespeichert</title><style>body{font-family:sans-serif;text-align:center;margin-top:80px;"
                "background:#1a1a1a;color:#eee}</style></head><body>");
     html += "<h1>" + String(label("Gespeichert", "Saved")) + "</h1><p>" +
-            String(label("Geraet startet neu...", "Device is restarting...")) + "</p></body></html>";
+            String(label("Gerät startet neu...", "Device is restarting...")) + "</p></body></html>";
     return html;
 }
 

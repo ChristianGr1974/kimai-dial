@@ -13,42 +13,42 @@ constexpr size_t KEY_COUNT = static_cast<size_t>(I18n::Key::COUNT);
 static const char *const TABLE_DE[KEY_COUNT] = {
     "Kimai Dial",                     // MAIN_MENU_TITLE
     "Zeiterfassung",                  // MAIN_MENU_TRACKING
-    "Settings",                       // MAIN_MENU_SETTINGS
-    "Settings",                       // SETTINGS_MENU_TITLE
-    "Setup",                          // SETTINGS_SETUP
+    "Einstellungen",                  // MAIN_MENU_SETTINGS
+    "Einstellungen",                  // SETTINGS_MENU_TITLE
+    "Einrichtung",                    // SETTINGS_SETUP
     "Status",                        // SETTINGS_STATUS
     "Sprache",                        // SETTINGS_LANGUAGE
-    "Zurueck",                        // BACK
+    "Zurück",                         // BACK
     "Projekt",                        // PROJECT_TITLE
     "Keine Projekte",                 // PROJECT_EMPTY
-    "Klick = waehlen, Lang = zurueck",// PROJECT_HINT
-    "Aktivitaet",                     // ACTIVITY_TITLE
-    "Keine Aktivitaeten",             // ACTIVITY_EMPTY
-    "Klick = waehlen, Lang = zurueck",// ACTIVITY_HINT
+    "Klick = wählen, Lang = zurück",  // PROJECT_HINT
+    "Aktivität",                      // ACTIVITY_TITLE
+    "Keine Aktivitäten",              // ACTIVITY_EMPTY
+    "Klick = wählen, Lang = zurück",  // ACTIVITY_HINT
     "Starte Timer...",                // STARTING_ENTRY
     "Stoppe Timer...",                // STOPPING_ENTRY
     "offline",                        // TRACKING_OFFLINE
     "Kimai Dial",                     // BOOT_TITLE
     "Starte...",                      // BOOT_STARTING
     "WLAN",                           // WIFI_CONNECTING_TITLE
-    "Connecting WiFi...",             // WIFI_CONNECTING_TEXT
-    "WLAN Fehler",                    // ERROR_WIFI_TITLE
-    "API Fehler",                     // ERROR_API_TITLE
-    "Klick fuer Retry",               // RETRY_HINT
+    "Verbinde mit WLAN...",           // WIFI_CONNECTING_TEXT
+    "WLAN-Fehler",                    // ERROR_WIFI_TITLE
+    "API-Fehler",                     // ERROR_API_TITLE
+    "Klick zum Wiederholen",          // RETRY_HINT
     "Kimai",                          // LOADING_DATA_TITLE
     "Lade Daten...",                  // LOADING_DATA_TEXT
-    "Setup-WLAN",                     // SETUP_WLAN_TITLE
-    "Settings-URL",                   // SETUP_URL_TITLE
+    "WLAN-Einrichtung",               // SETUP_WLAN_TITLE
+    "Einstellungs-Adresse",           // SETUP_URL_TITLE
     "Falls keine Anmeldeseite:",      // SETUP_NO_LOGIN_PAGE
     "Status",                         // STATUS_TITLE
-    "User",                           // STATUS_USER
+    "Benutzer",                       // STATUS_USER
     "WLAN",                           // STATUS_WLAN
-    "URL",                            // STATUS_URL
+    "Adresse",                        // STATUS_URL
     "API-Token",                      // STATUS_TOKEN
     "(nicht gesetzt)",                // STATUS_NOT_SET
-    "(nicht im LAN)",                 // STATUS_NOT_ON_LAN
+    "(nicht im Netzwerk)",            // STATUS_NOT_ON_LAN
     "Deutsch",                        // LANGUAGE_GERMAN
-    "English",                        // LANGUAGE_ENGLISH
+    "Englisch",                       // LANGUAGE_ENGLISH
 };
 
 static const char *const TABLE_EN[KEY_COUNT] = {
