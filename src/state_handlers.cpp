@@ -259,8 +259,11 @@ void loadProjectsAndCheckActive() {
     }
 
     if (ctx.selection.projects.empty()) {
+        // No real error to retry here (no project exists yet in Kimai) -
+        // lastFailedAction = NONE makes handleErrorApi() go straight back
+        // to the main menu on click instead of looping the same fetch.
         ctx.error.errorMessage = I18n::t(I18n::Key::PROJECT_EMPTY);
-        ctx.error.lastFailedAction = LastAction::LOAD_PROJECTS;
+        ctx.error.lastFailedAction = LastAction::NONE;
         setState(AppState::ERROR_API);
         return;
     }
@@ -511,8 +514,10 @@ void handleListBrowse() {
             return;
         }
         if (ctx.selection.activities.empty()) {
+            // Same reasoning as the empty-projects case above: nothing to
+            // retry, go straight back to the main menu on click.
             ctx.error.errorMessage = I18n::t(I18n::Key::ACTIVITY_EMPTY);
-            ctx.error.lastFailedAction = LastAction::LOAD_ACTIVITIES;
+            ctx.error.lastFailedAction = LastAction::NONE;
             setState(AppState::ERROR_API);
             return;
         }
