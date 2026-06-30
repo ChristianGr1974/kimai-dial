@@ -3,29 +3,20 @@
 #include <Arduino.h>
 #include <vector>
 
-// Main state machine.
-//
-// Note on ACTIVITY_BROWSE: the architecture spec left open whether the
-// activity browse stage should be its own state or a flag inside
-// LIST_BROWSE. We use a dedicated state (ACTIVITY_BROWSE) so render()/update()
-// stay cleanly separated per stage and no extra flag needs to be threaded
-// through the whole codebase.
 enum class AppState {
     BOOT,
     WIFI_CONNECTING,
     ERROR_WIFI,
     LOADING_DATA,
     ERROR_API,
-    LIST_BROWSE,      // Project selection
+    CUSTOMER_BROWSE,  // Customer selection (first step of time tracking)
+    LIST_BROWSE,      // Project selection (filtered by selected customer)
     ACTIVITY_BROWSE,  // Activity selection within the chosen project
     STARTING_ENTRY,
     TRACKING_ACTIVE,
     STOPPING_ENTRY,
-    // New states for carousel navigation (settings/onboarding):
     MAIN_MENU,
     SETTINGS_MENU,
-    // Setup via AP+browser replaces the former rotary character picker
-    // (char_picker.h/.cpp, removed) entirely - see setup_webserver.h/.cpp.
     SETUP_AP,        // Device is not on the LAN: AP active, shows only the QR code
     SETUP_LAN_INFO,  // Device is on the LAN: shows only the QR code for the settings page
     SETTINGS_STATUS  // Text overview: user, WiFi SSID, URL, API token
@@ -58,13 +49,13 @@ enum class LastAction {
 // Project/activity browse state: loaded lists plus the current
 // encoder selection position within them.
 struct BrowseSelection {
-    std::vector<KimaiProject> projects;
+    std::vector<KimaiProject> projects;          // all projects (full list, for customer extraction)
+    std::vector<KimaiProject> filteredProjects;  // projects filtered by the selected customer
     std::vector<KimaiActivity> activities;
-    int selectedProjectIndex = 0;
+    std::vector<String> customers;               // unique customer names, derived from projects
+    int selectedCustomerIndex = 0;
+    int selectedProjectIndex = 0;                // indexes into filteredProjects
     int selectedActivityIndex = 0;
-    // On resume (set before the project list is loaded), we track whether
-    // a long-press from LIST_BROWSE is allowed to go back to the main menu -
-    // currently always true, field kept for clarity in the code.
     bool projectsLoaded = false;
 };
 

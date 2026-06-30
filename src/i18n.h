@@ -20,6 +20,9 @@ enum class Key {
     SETTINGS_STATUS,
     SETTINGS_LANGUAGE,
     BACK,
+    CUSTOMER_TITLE,
+    CUSTOMER_EMPTY,
+    CUSTOMER_GLOBAL,   // label for projects that have no customer assigned
     PROJECT_TITLE,
     PROJECT_EMPTY,
     PROJECT_HINT,

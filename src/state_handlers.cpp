@@ -154,9 +154,22 @@ CarouselItem makeBackItem() {
     return back;
 }
 
+void buildCustomerCarousel() {
+    std::vector<CarouselItem> items;
+    for (const auto &c : ctx.selection.customers) {
+        CarouselItem item;
+        item.label = c;
+        items.push_back(item);
+    }
+    items.push_back(makeBackItem());
+    carousel.setTitle(I18n::t(I18n::Key::CUSTOMER_TITLE));
+    carousel.setItems(items);
+    carousel.setSelectedIndex(ctx.selection.selectedCustomerIndex);
+}
+
 void buildProjectCarousel() {
     std::vector<CarouselItem> items;
-    for (auto &p : ctx.selection.projects) {
+    for (auto &p : ctx.selection.filteredProjects) {
         CarouselItem item;
         item.label = p.name;
         item.hasColor = !p.colorHex.isEmpty();
@@ -284,6 +297,23 @@ void loadProjectsAndCheckActive() {
     }
     ctx.selection.projectsLoaded = true;
 
+    // Derive the unique customer list from the loaded projects (preserving
+    // insertion order so the most recently added customer stays first).
+    // Projects without a customerTitle (rare in Kimai, but possible) are
+    // grouped under a "Global/Allgemein" fallback entry.
+    ctx.selection.customers.clear();
+    for (const auto &p : ctx.selection.projects) {
+        const String cn = p.customerTitle.isEmpty()
+                              ? String(I18n::t(I18n::Key::CUSTOMER_GLOBAL))
+                              : p.customerTitle;
+        bool found = false;
+        for (const auto &c : ctx.selection.customers) {
+            if (c == cn) { found = true; break; }
+        }
+        if (!found) ctx.selection.customers.push_back(cn);
+    }
+    ctx.selection.selectedCustomerIndex = 0;
+
     // Check whether a timesheet is already running (resume after reboot).
     int activeId = -1, activeProjectId = -1, activeActivityId = -1;
     String activeBegin;
@@ -335,7 +365,7 @@ void retryLastAction() {
             setState(AppState::LOADING_DATA);
             UiScreens::renderLoadingData();
             String err;
-            const KimaiProject &p = ctx.selection.projects[ctx.selection.selectedProjectIndex];
+            const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
             if (!KimaiClient::fetchActivities(g_credentialsProvider, p.id, ctx.selection.activities, err)) {
                 ctx.error.errorMessage = err;
                 ctx.error.lastFailedAction = LastAction::LOAD_ACTIVITIES;
@@ -351,7 +381,7 @@ void retryLastAction() {
             UiScreens::renderStartingEntry();
             String err;
             int newId = -1;
-            const KimaiProject &p = ctx.selection.projects[ctx.selection.selectedProjectIndex];
+            const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
             const KimaiActivity &a = ctx.selection.activities[ctx.selection.selectedActivityIndex];
             if (!KimaiClient::startTimesheet(g_credentialsProvider, p.id, a.id, newId, err)) {
                 ctx.error.errorMessage = err;
@@ -426,6 +456,10 @@ long enterCarouselScreen(void (*buildFn)()) {
     return readEncoderDelta();
 }
 
+void enterCustomerBrowse() {
+    buildCustomerCarousel();
+}
+
 void enterListBrowse() {
     UiScreens::renderProjectBrowse(ctx);
     buildProjectCarousel();
@@ -454,12 +488,12 @@ void handleMainMenu() {
             if (!ctx.selection.projectsLoaded) {
                 loadProjectsAndCheckActive();
                 // loadProjectsAndCheckActive() sets MAIN_MENU or TRACKING_ACTIVE;
-                // if MAIN_MENU (no active timesheet), proceed straight to LIST_BROWSE.
+                // if MAIN_MENU (no active timesheet), proceed to CUSTOMER_BROWSE.
                 if (ctx.state == AppState::MAIN_MENU) {
-                    setState(AppState::LIST_BROWSE);
+                    setState(AppState::CUSTOMER_BROWSE);
                 }
             } else {
-                setState(AppState::LIST_BROWSE);
+                setState(AppState::CUSTOMER_BROWSE);
             }
         } else {
             setState(AppState::SETTINGS_MENU);
@@ -511,6 +545,50 @@ void handleSettingsMenu() {
     }
 }
 
+void handleCustomerBrowse() {
+    long delta = enterCarouselScreen(enterCustomerBrowse);
+    if (delta != 0) {
+        carousel.onEncoderDelta(delta);
+        int sel = carousel.selectedIndex();
+        if (sel < (int)ctx.selection.customers.size()) {
+            ctx.selection.selectedCustomerIndex = sel;
+        }
+    }
+
+    if (wasClicked() && !ctx.selection.customers.empty()) {
+        const CarouselItem &item = carousel.selectedItem();
+        if (item.payloadId == BACK_ITEM_ID) {
+            setState(AppState::MAIN_MENU);
+            return;
+        }
+        ctx.selection.selectedCustomerIndex = carousel.selectedIndex();
+
+        // Build the filtered project list for the selected customer.
+        const String &selectedCustomer = ctx.selection.customers[ctx.selection.selectedCustomerIndex];
+        ctx.selection.filteredProjects.clear();
+        for (const auto &p : ctx.selection.projects) {
+            const String cn = p.customerTitle.isEmpty()
+                                  ? String(I18n::t(I18n::Key::CUSTOMER_GLOBAL))
+                                  : p.customerTitle;
+            if (cn == selectedCustomer) {
+                ctx.selection.filteredProjects.push_back(p);
+            }
+        }
+        if (ctx.selection.filteredProjects.empty()) {
+            ctx.error.errorMessage = I18n::t(I18n::Key::PROJECT_EMPTY);
+            ctx.error.lastFailedAction = LastAction::NONE;
+            setState(AppState::ERROR_API);
+            return;
+        }
+        ctx.selection.selectedProjectIndex = 0;
+        setState(AppState::LIST_BROWSE);
+        return;
+    }
+    if (wasLongPressed()) {
+        setState(AppState::MAIN_MENU);
+    }
+}
+
 void handleListBrowse() {
     long delta = enterCarouselScreen(enterListBrowse);
     if (delta != 0) {
@@ -524,17 +602,17 @@ void handleListBrowse() {
         }
     }
 
-    if (wasClicked() && !ctx.selection.projects.empty()) {
+    if (wasClicked() && !ctx.selection.filteredProjects.empty()) {
         const CarouselItem &item = carousel.selectedItem();
         if (item.payloadId == BACK_ITEM_ID) {
-            setState(AppState::MAIN_MENU);
+            setState(AppState::CUSTOMER_BROWSE);
             return;
         }
         ctx.selection.selectedProjectIndex = carousel.selectedIndex();
         setState(AppState::LOADING_DATA);
         UiScreens::renderLoadingData();
         String err;
-        const KimaiProject &p = ctx.selection.projects[ctx.selection.selectedProjectIndex];
+        const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
         if (!KimaiClient::fetchActivities(g_credentialsProvider, p.id, ctx.selection.activities, err)) {
             ctx.error.errorMessage = err;
             ctx.error.lastFailedAction = LastAction::LOAD_ACTIVITIES;
@@ -554,7 +632,7 @@ void handleListBrowse() {
         return;
     }
     if (wasLongPressed()) {
-        setState(AppState::MAIN_MENU);
+        setState(AppState::CUSTOMER_BROWSE);
     }
 }
 
@@ -579,7 +657,7 @@ void handleActivityBrowse() {
         UiScreens::renderStartingEntry();
         String err;
         int newId = -1;
-        const KimaiProject &p = ctx.selection.projects[ctx.selection.selectedProjectIndex];
+        const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
         const KimaiActivity &a = ctx.selection.activities[ctx.selection.selectedActivityIndex];
         if (!KimaiClient::startTimesheet(g_credentialsProvider, p.id, a.id, newId, err)) {
             ctx.error.errorMessage = err;
@@ -805,6 +883,9 @@ void tick() {
             break;
         case AppState::ERROR_API:
             handleErrorApi();
+            break;
+        case AppState::CUSTOMER_BROWSE:
+            handleCustomerBrowse();
             break;
         case AppState::LIST_BROWSE:
             handleListBrowse();

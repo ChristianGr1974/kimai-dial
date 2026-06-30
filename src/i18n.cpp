@@ -19,6 +19,9 @@ static const char *const TABLE_DE[KEY_COUNT] = {
     "Status",                        // SETTINGS_STATUS
     "Sprache",                        // SETTINGS_LANGUAGE
     "Zurück",                         // BACK
+    "Kunde",                          // CUSTOMER_TITLE
+    "Keine Kunden",                   // CUSTOMER_EMPTY
+    "Allgemein",                      // CUSTOMER_GLOBAL
     "Projekt",                        // PROJECT_TITLE
     "Keine Projekte",                 // PROJECT_EMPTY
     "Klick = wählen, Lang = zurück",  // PROJECT_HINT
@@ -60,6 +63,9 @@ static const char *const TABLE_EN[KEY_COUNT] = {
     "Status",                        // SETTINGS_STATUS
     "Language",                       // SETTINGS_LANGUAGE
     "Back",                           // BACK
+    "Customer",                       // CUSTOMER_TITLE
+    "No customers",                   // CUSTOMER_EMPTY
+    "Global",                         // CUSTOMER_GLOBAL
     "Project",                        // PROJECT_TITLE
     "No projects",                    // PROJECT_EMPTY
     "Click = select, Hold = back",    // PROJECT_HINT

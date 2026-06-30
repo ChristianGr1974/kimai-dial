@@ -151,7 +151,9 @@ bool fetchProjects(const ICredentialsProvider &credentials, std::vector<KimaiPro
 bool fetchActivities(const ICredentialsProvider &credentials, int projectId,
                       std::vector<KimaiActivity> &outActivities, String &outError) {
     String body;
-    String path = "/api/activities?project=" + String(projectId);
+    // globals=true includes activities not bound to any specific project,
+    // so the user can always select them regardless of which project was chosen.
+    String path = "/api/activities?project=" + String(projectId) + "&globals=true";
     if (!httpGet(credentials, path, body, outError)) {
         return false;
     }
