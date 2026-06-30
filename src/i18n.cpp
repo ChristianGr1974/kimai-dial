@@ -28,6 +28,13 @@ static const char *const TABLE_DE[KEY_COUNT] = {
     "Aktivität",                      // ACTIVITY_TITLE
     "Keine Aktivitäten",              // ACTIVITY_EMPTY
     "Klick = wählen, Lang = zurück",  // ACTIVITY_HINT
+    "Bereit",                         // SESSION_READY
+    "Läuft...",                       // SESSION_RUNNING
+    "Pausiert",                       // SESSION_PAUSED
+    "Start",                          // SESSION_START
+    "Fortsetzen",                     // SESSION_RESUME
+    "Pause",                          // SESSION_PAUSE
+    "Beenden",                        // SESSION_STOP
     "Starte Timer...",                // STARTING_ENTRY
     "Stoppe Timer...",                // STOPPING_ENTRY
     "offline",                        // TRACKING_OFFLINE
@@ -72,6 +79,13 @@ static const char *const TABLE_EN[KEY_COUNT] = {
     "Activity",                       // ACTIVITY_TITLE
     "No activities",                  // ACTIVITY_EMPTY
     "Click = select, Hold = back",    // ACTIVITY_HINT
+    "Ready",                          // SESSION_READY
+    "Running...",                     // SESSION_RUNNING
+    "Paused",                         // SESSION_PAUSED
+    "Start",                          // SESSION_START
+    "Resume",                         // SESSION_RESUME
+    "Pause",                          // SESSION_PAUSE
+    "Stop",                           // SESSION_STOP
     "Starting timer...",              // STARTING_ENTRY
     "Stopping timer...",              // STOPPING_ENTRY
     "offline",                        // TRACKING_OFFLINE

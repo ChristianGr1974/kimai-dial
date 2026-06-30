@@ -15,6 +15,14 @@ void renderLoadingData();
 void renderErrorApi(const String &message);
 void renderProjectBrowse(const AppContext &ctx);
 void renderActivityBrowse(const AppContext &ctx);
+// Full redraw of the session screen (call once on entry or when icon selection changes).
+// Full redraw of the session screen.
+void renderTrackingSession(const AppContext &ctx, unsigned long elapsedMs,
+                            bool isRunning, int selectedItem);
+// Partial update: only redraws the clock area (no fillScreen, no flicker).
+void updateTrackingSessionClock(unsigned long elapsedMs);
+// Partial update: only redraws the icon row (selection highlight changed).
+void updateTrackingSessionIcons(bool isRunning, int selectedItem);
 void renderStartingEntry();
 // Draws the static parts of the tracking screen (project/activity/hint)
 // once on entering the state - the clock itself is updated separately via

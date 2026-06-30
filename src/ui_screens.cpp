@@ -246,6 +246,128 @@ void renderActivityBrowse(const AppContext &ctx) {
     drawRetryHint();
 }
 
+namespace {
+// Icon geometry constants for the TRACKING_SESSION icon row.
+// Two icons side-by-side, centered horizontally.
+constexpr int ICON_Y        = 175;   // vertical center of both icons
+constexpr int ICON_SIZE     = 18;    // bounding box half-size
+constexpr int ICON_GAP      = 28;    // gap between icon centers
+constexpr int ICON_LEFT_X   = CENTER_X - ICON_GAP;   // toggle icon center x
+constexpr int ICON_RIGHT_X  = CENTER_X + ICON_GAP;   // stop icon center x
+
+// Separate constants for the session clock area to avoid naming clash with
+// the TRACKING_ACTIVE clock rect defined further down.
+constexpr int SESSION_CLOCK_X = 10;
+constexpr int SESSION_CLOCK_Y = CENTER_Y - 50;
+constexpr int SESSION_CLOCK_W = 220;
+constexpr int SESSION_CLOCK_H = 75;
+
+// Left icon: ▶ (not running) or ■ (running).
+void drawToggleIcon(int cx, int cy, bool isRunning, uint16_t color) {
+    if (isRunning) {
+        int s = ICON_SIZE - 2;
+        M5Dial.Display.fillRect(cx - s / 2, cy - s / 2, s, s, color);
+    } else {
+        int s = ICON_SIZE;
+        M5Dial.Display.fillTriangle(cx - s / 2, cy - s / 2,
+                                    cx - s / 2, cy + s / 2,
+                                    cx + s / 2, cy,
+                                    color);
+    }
+}
+
+// Right icon: door-with-arrow exit (portrait door, open right, arrow exits right).
+void drawExitIcon(int cx, int cy, uint16_t color) {
+    int th = 3;   // bar thickness
+
+    // Door frame: portrait rectangle open on the right side.
+    // Sits left-of-center so the arrow has space to the right.
+    int dl = cx - 16;  // door left edge
+    int dr = cx - 4;   // door right edge (opening here)
+    int dt = cy - 12;  // door top
+    int db = cy + 12;  // door bottom
+
+    M5Dial.Display.fillRect(dl,        dt, th,       db - dt, color); // left bar
+    M5Dial.Display.fillRect(dl,        dt, dr - dl,  th,      color); // top bar
+    M5Dial.Display.fillRect(dl,        db - th, dr - dl, th,  color); // bottom bar
+
+    // Arrow shaft + head pointing right, centered vertically
+    int shaftX = cx - 8;    // shaft starts inside the door
+    int shaftW = 14;        // shaft length
+    int headH  = 7;         // triangle half-height
+    int tipX   = shaftX + shaftW + headH;
+
+    M5Dial.Display.fillRect(shaftX, cy - 2, shaftW, 4, color);
+    M5Dial.Display.fillTriangle(shaftX + shaftW, cy - headH,
+                                 shaftX + shaftW, cy + headH,
+                                 tipX,             cy, color);
+}
+
+// Draw a circle highlight behind the focused icon.
+void drawIconHighlight(int cx, uint16_t color) {
+    int r = ICON_SIZE + 6;
+    M5Dial.Display.drawCircle(cx, ICON_Y, r,     color);
+    M5Dial.Display.drawCircle(cx, ICON_Y, r - 1, color);
+    M5Dial.Display.drawCircle(cx, ICON_Y, r - 2, color);
+}
+} // namespace (icon helpers)
+
+// Erase the entire icon row area so it can be redrawn cleanly.
+static void clearIconRow() {
+    M5Dial.Display.fillRect(0, ICON_Y - ICON_SIZE - 8,
+                             240, (ICON_SIZE + 8) * 2 + 4,
+                             g_bgColor);
+}
+
+void updateTrackingSessionIcons(bool isRunning, int selectedItem) {
+    clearIconRow();
+    uint16_t activeColor   = g_fgColor;
+    uint16_t inactiveColor = TFT_DARKGREY;
+
+    bool toggleSelected = (selectedItem == 0);
+    bool exitSelected   = (selectedItem == 1);
+
+    if (toggleSelected) drawIconHighlight(ICON_LEFT_X, activeColor);
+    drawToggleIcon(ICON_LEFT_X, ICON_Y, isRunning, toggleSelected ? activeColor : inactiveColor);
+
+    if (exitSelected) drawIconHighlight(ICON_RIGHT_X, activeColor);
+    drawExitIcon(ICON_RIGHT_X, ICON_Y, exitSelected ? activeColor : inactiveColor);
+}
+
+void updateTrackingSessionClock(unsigned long elapsedMs) {
+    useFont(FontChoice::CLOCK);
+    M5Dial.Display.fillRect(SESSION_CLOCK_X, SESSION_CLOCK_Y,
+                             SESSION_CLOCK_W, SESSION_CLOCK_H, g_bgColor);
+    unsigned long totalSec = elapsedMs / 1000;
+    unsigned long h = totalSec / 3600;
+    unsigned long m = (totalSec % 3600) / 60;
+    unsigned long s = totalSec % 60;
+    char timeBuf[16];
+    snprintf(timeBuf, sizeof(timeBuf), "%02lu:%02lu:%02lu", h, m, s);
+    M5Dial.Display.setTextDatum(middle_center);
+    M5Dial.Display.setTextColor(g_fgColor, g_bgColor);
+    M5Dial.Display.setTextSize(1);
+    M5Dial.Display.drawString(timeBuf, CENTER_X, CENTER_Y - 15);
+    useFont(FontChoice::UI);
+}
+
+void renderTrackingSession(const AppContext &ctx, unsigned long elapsedMs,
+                            bool isRunning, int selectedItem) {
+    setColorScheme(ctx.tracking.activeColorHex);
+    clearScreen();
+
+    if (!ctx.tracking.activeActivityName.isEmpty()) {
+        drawCentered(ctx.tracking.activeActivityName, 38, 1);
+    }
+
+    const char *statusLabel = isRunning ? I18n::t(I18n::Key::SESSION_RUNNING)
+                                        : I18n::t(I18n::Key::SESSION_READY);
+    drawCentered(statusLabel, 58, 1, g_fgColor);
+
+    updateTrackingSessionClock(elapsedMs);
+    updateTrackingSessionIcons(isRunning, selectedItem);
+}
+
 void renderStartingEntry() {
     clearScreen();
     drawTitle(I18n::t(I18n::Key::LOADING_DATA_TITLE));

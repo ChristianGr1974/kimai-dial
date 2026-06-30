@@ -29,6 +29,13 @@ enum class Key {
     ACTIVITY_TITLE,
     ACTIVITY_EMPTY,
     ACTIVITY_HINT,
+    SESSION_READY,    // before timer is started for the first time
+    SESSION_RUNNING,  // timer is running
+    SESSION_PAUSED,   // timer is paused
+    SESSION_START,    // button label: start the timer
+    SESSION_RESUME,   // button label: resume after pause
+    SESSION_PAUSE,    // button label: pause the running timer
+    SESSION_STOP,     // button label: stop and leave screen
     STARTING_ENTRY,
     STOPPING_ENTRY,
     TRACKING_OFFLINE,

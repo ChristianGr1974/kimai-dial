@@ -12,6 +12,7 @@ enum class AppState {
     CUSTOMER_BROWSE,  // Customer selection (first step of time tracking)
     LIST_BROWSE,      // Project selection (filtered by selected customer)
     ACTIVITY_BROWSE,  // Activity selection within the chosen project
+    TRACKING_SESSION, // Start/pause/stop screen before and during tracking
     STARTING_ENTRY,
     TRACKING_ACTIVE,
     STOPPING_ENTRY,
@@ -62,7 +63,10 @@ struct BrowseSelection {
 // Currently running (or most recently started) timesheet entry.
 struct TrackingSession {
     int activeTimesheetId = -1;
-    unsigned long trackingStartMillis = 0; // for the running clock, NOT API-based
+    unsigned long trackingStartMillis = 0; // millis() when the current run started
+    unsigned long accumulatedMs = 0;       // total ms from all previous start/pause cycles
+    int projectId = -1;                    // needed to start a new timesheet after resume
+    int activityId = -1;
     String activeProjectName;
     String activeActivityName;
     String activeColorHex; // color of the activity (or project as fallback), for the tracking background

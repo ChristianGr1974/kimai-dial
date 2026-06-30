@@ -653,30 +653,123 @@ void handleActivityBrowse() {
             return;
         }
         ctx.selection.selectedActivityIndex = carousel.selectedIndex();
-        setState(AppState::STARTING_ENTRY);
-        UiScreens::renderStartingEntry();
-        String err;
-        int newId = -1;
-        const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
-        const KimaiActivity &a = ctx.selection.activities[ctx.selection.selectedActivityIndex];
-        if (!KimaiClient::startTimesheet(g_credentialsProvider, p.id, a.id, newId, err)) {
-            ctx.error.errorMessage = err;
-            ctx.error.lastFailedAction = LastAction::START_TIMESHEET;
-            setState(AppState::ERROR_API);
-            return;
+        {
+            const KimaiProject &p = ctx.selection.filteredProjects[ctx.selection.selectedProjectIndex];
+            const KimaiActivity &a = ctx.selection.activities[ctx.selection.selectedActivityIndex];
+            ctx.tracking.projectId = p.id;
+            ctx.tracking.activityId = a.id;
+            ctx.tracking.activeProjectName = p.name;
+            ctx.tracking.activeActivityName = a.name;
+            ctx.tracking.activeColorHex = !a.colorHex.isEmpty() ? a.colorHex : p.colorHex;
+            ctx.tracking.activeTimesheetId = -1;
+            ctx.tracking.trackingStartMillis = 0;
+            ctx.tracking.accumulatedMs = 0;
         }
-        ctx.tracking.activeTimesheetId = newId;
-        ctx.tracking.activeProjectName = p.name;
-        ctx.tracking.activeActivityName = a.name;
-        ctx.tracking.activeColorHex = !a.colorHex.isEmpty() ? a.colorHex : p.colorHex;
-        ctx.tracking.trackingStartMillis = millis();
-        setState(AppState::TRACKING_ACTIVE);
+        setState(AppState::TRACKING_SESSION);
         return;
     }
     if (wasLongPressed()) {
         // Only one step back (to the project list), don't jump all the
         // way to the main menu - ACTIVITY_BROWSE sits one level below LIST_BROWSE.
         setState(AppState::LIST_BROWSE);
+    }
+}
+
+// ── TRACKING_SESSION ─────────────────────────────────────────────────────────
+// Two-item "menu" (toggle + stop) navigable by the encoder.
+// The timer only runs between start/resume and pause/stop.
+// selectedItem: 0 = toggle (Start/Pause/Resume), 1 = Beenden
+void handleTrackingSession() {
+    static int selectedItem = 0; // 0 = start/stop toggle, 1 = exit
+    static unsigned long lastRenderedSec = (unsigned long)-1;
+    static int lastSelectedItem = -1;
+    static bool lastIsRunning = false;
+
+    bool isRunning = (ctx.tracking.trackingStartMillis != 0);
+
+    unsigned long elapsedMs = 0;
+    if (isRunning) {
+        elapsedMs = millis() - ctx.tracking.trackingStartMillis;
+    }
+    unsigned long curSec = elapsedMs / 1000;
+
+    long delta = readEncoderDelta();
+    if (delta != 0) {
+        selectedItem = constrain(selectedItem + (int)delta, 0, 1);
+    }
+
+    bool timerStateChanged = (isRunning != lastIsRunning);
+    bool iconChanged       = (selectedItem != lastSelectedItem);
+
+    if (needsRender || timerStateChanged) {
+        UiScreens::renderTrackingSession(ctx, elapsedMs, isRunning, selectedItem);
+        lastRenderedSec  = curSec;
+        lastSelectedItem = selectedItem;
+        lastIsRunning    = isRunning;
+        needsRender = false;
+    } else if (iconChanged) {
+        UiScreens::updateTrackingSessionIcons(isRunning, selectedItem);
+        lastSelectedItem = selectedItem;
+    } else if (isRunning && curSec != lastRenderedSec) {
+        UiScreens::updateTrackingSessionClock(elapsedMs);
+        lastRenderedSec = curSec;
+    }
+
+    if (!wasClicked()) return;
+
+    if (selectedItem == 1) {
+        // ── Exit ───────────────────────────────────────────────────────────
+        if (ctx.tracking.activeTimesheetId != -1) {
+            setState(AppState::STOPPING_ENTRY);
+            UiScreens::renderStoppingEntry();
+            String err;
+            if (!KimaiClient::stopTimesheet(g_credentialsProvider, ctx.tracking.activeTimesheetId, err)) {
+                ctx.error.errorMessage = err;
+                ctx.error.lastFailedAction = LastAction::STOP_TIMESHEET;
+                setState(AppState::ERROR_API);
+                return;
+            }
+            ctx.tracking.activeTimesheetId = -1;
+        }
+        ctx.tracking.trackingStartMillis = 0;
+        selectedItem = 0;
+        setState(AppState::MAIN_MENU);
+        return;
+    }
+
+    // ── Start / Stop toggle ────────────────────────────────────────────────
+    if (!isRunning) {
+        setState(AppState::STARTING_ENTRY);
+        UiScreens::renderStartingEntry();
+        String err;
+        int newId = -1;
+        if (!KimaiClient::startTimesheet(g_credentialsProvider,
+                                         ctx.tracking.projectId, ctx.tracking.activityId,
+                                         newId, err)) {
+            ctx.error.errorMessage = err;
+            ctx.error.lastFailedAction = LastAction::START_TIMESHEET;
+            setState(AppState::ERROR_API);
+            return;
+        }
+        ctx.tracking.activeTimesheetId = newId;
+        ctx.tracking.trackingStartMillis = millis();
+        setState(AppState::TRACKING_SESSION);
+        needsRender = true;
+    } else {
+        // Stop: Kimai-Eintrag beenden, Timer auf 0 zurücksetzen.
+        setState(AppState::STOPPING_ENTRY);
+        UiScreens::renderStoppingEntry();
+        String err;
+        if (!KimaiClient::stopTimesheet(g_credentialsProvider, ctx.tracking.activeTimesheetId, err)) {
+            ctx.error.errorMessage = err;
+            ctx.error.lastFailedAction = LastAction::STOP_TIMESHEET;
+            setState(AppState::ERROR_API);
+            return;
+        }
+        ctx.tracking.activeTimesheetId = -1;
+        ctx.tracking.trackingStartMillis = 0;
+        setState(AppState::TRACKING_SESSION);
+        needsRender = true;
     }
 }
 
@@ -893,8 +986,11 @@ void tick() {
         case AppState::ACTIVITY_BROWSE:
             handleActivityBrowse();
             break;
+        case AppState::TRACKING_SESSION:
+            handleTrackingSession();
+            break;
         case AppState::STARTING_ENTRY:
-            // handled synchronously in handleActivityBrowse/retry
+            // handled synchronously in handleTrackingSession/retry
             break;
         case AppState::TRACKING_ACTIVE:
             handleTrackingActive();
