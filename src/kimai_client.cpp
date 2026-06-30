@@ -109,10 +109,11 @@ KimaiProject parseProjectJson(JsonObject obj) {
     return p;
 }
 
-KimaiActivity parseActivityJson(JsonObject obj, int projectId) {
+KimaiActivity parseActivityJson(JsonObject obj) {
     KimaiActivity a;
     a.id = obj["id"].as<int>();
-    a.projectId = projectId;
+    // project is null for global activities (not bound to any specific project).
+    a.projectId = obj["project"].isNull() ? -1 : obj["project"].as<int>();
     a.name = obj["name"].as<String>();
     if (!obj["color"].isNull()) {
         a.colorHex = obj["color"].as<String>();
@@ -148,48 +149,36 @@ bool fetchProjects(const ICredentialsProvider &credentials, std::vector<KimaiPro
     return true;
 }
 
-// Parses an activity list from a JSON body into outActivities (appending).
-static bool parseActivityList(const String &body, int projectId,
-                               std::vector<KimaiActivity> &outActivities, String &outError) {
+bool fetchActivities(const ICredentialsProvider &credentials, int projectId,
+                      std::vector<KimaiActivity> &outActivities, String &outError) {
+    // Fetch ALL activities without a server-side project filter, then filter
+    // client-side. This avoids relying on Kimai's project/globals query
+    // parameter semantics, which differ between versions and caused double-
+    // listing of global activities and missing project-specific ones.
+    // Global activities (project == null in API response, parsed as projectId = -1)
+    // are always included regardless of which project was selected.
+    String body;
+    if (!httpGet(credentials, "/api/activities", body, outError)) {
+        return false;
+    }
+
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, body);
     if (err) {
         outError = "JSON-Fehler: " + String(err.c_str());
         return false;
     }
+
+    outActivities.clear();
     for (JsonObject obj : doc.as<JsonArray>()) {
         if (obj["visible"].is<bool>() && !obj["visible"].as<bool>()) {
             continue;
         }
-        outActivities.push_back(parseActivityJson(obj, projectId));
+        KimaiActivity a = parseActivityJson(obj);
+        if (a.projectId == projectId || a.projectId == -1) {
+            outActivities.push_back(a);
+        }
     }
-    return true;
-}
-
-bool fetchActivities(const ICredentialsProvider &credentials, int projectId,
-                      std::vector<KimaiActivity> &outActivities, String &outError) {
-    outActivities.clear();
-
-    // Project-specific activities.
-    String body;
-    if (!httpGet(credentials, "/api/activities?project=" + String(projectId), body, outError)) {
-        return false;
-    }
-    if (!parseActivityList(body, projectId, outActivities, outError)) {
-        return false;
-    }
-
-    // Global activities (not bound to any project, projectId = -1).
-    // Kimai does not combine both in a single call with project+globals params,
-    // so we do a second request and append the results.
-    String globalBody;
-    if (!httpGet(credentials, "/api/activities?globals=true", globalBody, outError)) {
-        return false;
-    }
-    if (!parseActivityList(globalBody, -1, outActivities, outError)) {
-        return false;
-    }
-
     return true;
 }
 
