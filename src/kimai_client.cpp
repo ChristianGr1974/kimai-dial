@@ -148,30 +148,48 @@ bool fetchProjects(const ICredentialsProvider &credentials, std::vector<KimaiPro
     return true;
 }
 
-bool fetchActivities(const ICredentialsProvider &credentials, int projectId,
-                      std::vector<KimaiActivity> &outActivities, String &outError) {
-    String body;
-    // globals=true includes activities not bound to any specific project,
-    // so the user can always select them regardless of which project was chosen.
-    String path = "/api/activities?project=" + String(projectId) + "&globals=true";
-    if (!httpGet(credentials, path, body, outError)) {
-        return false;
-    }
-
+// Parses an activity list from a JSON body into outActivities (appending).
+static bool parseActivityList(const String &body, int projectId,
+                               std::vector<KimaiActivity> &outActivities, String &outError) {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, body);
     if (err) {
         outError = "JSON-Fehler: " + String(err.c_str());
         return false;
     }
-
-    outActivities.clear();
     for (JsonObject obj : doc.as<JsonArray>()) {
         if (obj["visible"].is<bool>() && !obj["visible"].as<bool>()) {
             continue;
         }
         outActivities.push_back(parseActivityJson(obj, projectId));
     }
+    return true;
+}
+
+bool fetchActivities(const ICredentialsProvider &credentials, int projectId,
+                      std::vector<KimaiActivity> &outActivities, String &outError) {
+    outActivities.clear();
+
+    // Project-specific activities.
+    String body;
+    if (!httpGet(credentials, "/api/activities?project=" + String(projectId), body, outError)) {
+        return false;
+    }
+    if (!parseActivityList(body, projectId, outActivities, outError)) {
+        return false;
+    }
+
+    // Global activities (not bound to any project, projectId = -1).
+    // Kimai does not combine both in a single call with project+globals params,
+    // so we do a second request and append the results.
+    String globalBody;
+    if (!httpGet(credentials, "/api/activities?globals=true", globalBody, outError)) {
+        return false;
+    }
+    if (!parseActivityList(globalBody, -1, outActivities, outError)) {
+        return false;
+    }
+
     return true;
 }
 
